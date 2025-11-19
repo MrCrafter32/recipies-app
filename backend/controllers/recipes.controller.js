@@ -45,16 +45,25 @@ function parseOp(raw){
 
 async function recipeSearch (req, res) {
 
-    const { title, cuisine, calories, total_time, rating, page, limit} = req.query;
+    const { title, cuisine, calories, totalTime, rating} = req.query;
+    const page = Number(req.query.page) || 1;
+    const limit = Number(req.query.limit) || 10;
+
+    console.log(req.query)
+
+
+
     // console.log(req.query)
 
-    if(!title && !cuisine && !calories && !total_time && !rating){
+    if(!title && !cuisine && !calories && !totalTime && !rating){
         return res.status(400).json({ error: 'Provide atleast one parameter' });
     }
 
+    
+
     const filters = [];
 
-    if (title) {
+    if (title !== "") {
         filters.push({
             title: {
                 contains: title,
@@ -62,10 +71,10 @@ async function recipeSearch (req, res) {
             }
         });
     }
-    if (cuisine) {
+    if (cuisine !== "") {
         filters.push({
             cuisine: {
-                equals: cuisine,
+                contains: cuisine,
                 mode: 'insensitive'
             }
         });
@@ -76,7 +85,7 @@ async function recipeSearch (req, res) {
                 calories: calFilter
         });
     }
-    const timeFilter = parseOp(total_time);
+    const timeFilter = parseOp(totalTime);
     if (timeFilter !== null) {
         filters.push({
             totalTime: timeFilter
@@ -108,7 +117,6 @@ async function recipeSearch (req, res) {
         skip,
         take: Number(limit) || 10
     });
-    // const data = { message: "This endpoint is under maintenance. Please try again later."}
     res.json(data)
 
 }
