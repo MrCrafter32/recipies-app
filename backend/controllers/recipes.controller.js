@@ -1,24 +1,33 @@
-const {PrismaClient} = require('@prisma/client');
+const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
-async function listRecipes (req, res) {
+async function listRecipes(req, res) {
 
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
     const offset = (page - 1) * limit;
 
-    const data = await prisma.recipe.findMany({
-        skip: offset,
-        take: limit
-    });
+    const [total, data] = await Promise.all([
+        prisma.recipe.count(),
+        prisma.recipe.findMany({
+            skip: offset,
+            take: limit,
+            orderBy: {
+                rating: 'desc'
+            }
+        })
+    ]);
 
-    res.json(data)
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
+
+
+    res.json({ data, totalPages });
 
 }
 
-function parseOp(raw){
+function parseOp(raw) {
     if (!raw) return null;
-    
+
     const x = decodeURIComponent(String(raw).trim());
 
     const match = x.match(/^(>=|<=|>|<|=)?\s*(.+)$/);
@@ -43,23 +52,22 @@ function parseOp(raw){
     }
 }
 
-async function recipeSearch (req, res) {
+async function recipeSearch(req, res) {
 
-    const { title, cuisine, calories, totalTime, rating} = req.query;
+    const { title, cuisine, calories, totalTime, rating } = req.query;
     const page = Number(req.query.page) || 1;
     const limit = Number(req.query.limit) || 10;
 
-    console.log(req.query)
 
 
 
     // console.log(req.query)
 
-    if(!title && !cuisine && !calories && !totalTime && !rating){
+    if (!title && !cuisine && !calories && !totalTime && !rating) {
         return res.status(400).json({ error: 'Provide atleast one parameter' });
     }
 
-    
+
 
     const filters = [];
 
@@ -82,7 +90,7 @@ async function recipeSearch (req, res) {
     const calFilter = parseOp(calories);
     if (calFilter !== null) {
         filters.push({
-                calories: calFilter
+            calories: calFilter
         });
     }
     const timeFilter = parseOp(totalTime);
@@ -102,22 +110,28 @@ async function recipeSearch (req, res) {
         return res.status(400).json({ error: 'Invalid Parameters' });
     }
 
-    const skip = (page-1)*limit || 0;
+    const skip = (page - 1) * limit || 0;
 
-    // console.log(calories, total_time, rating)
+    const [total, data] = await Promise.all([
+        prisma.recipe.count({
+            where: {
+                AND: filters
+            }
+        }),
+        prisma.recipe.findMany({
+            where: {
+                AND: filters
+            },
+            skip: skip,
+            take: Number(limit)
+        })
+    ]);
 
-    // console.log(calFilter, timeFilter, ratingFilter)
+    const totalPages = limit > 0 ? Math.ceil(total / limit) : 0;
 
+    
 
-
-    const data = await prisma.recipe.findMany({
-        where: {
-            AND: filters
-        },
-        skip,
-        take: Number(limit) || 10
-    });
-    res.json(data)
+    res.json({ data, totalPages });
 
 }
 
